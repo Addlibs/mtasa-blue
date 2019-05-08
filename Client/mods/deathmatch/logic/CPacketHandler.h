@@ -93,6 +93,7 @@ public:
     void Packet_DetonateSatchels(NetBitStreamInterface& bitStream);
     void Packet_DestroySatchels(NetBitStreamInterface& bitStream);
     void Packet_VoiceData(NetBitStreamInterface& bitStream);
+    void Packet_VoiceEnd(NetBitStreamInterface& bitStream);
     void Packet_UpdateInfo(NetBitStreamInterface& bitStream);
     void Packet_LatentTransfer(NetBitStreamInterface& bitStream);
     void Packet_SyncSettings(NetBitStreamInterface& bitStream);

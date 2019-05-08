@@ -1,8 +1,8 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
- *  FILE:        mods/deathmatch/logic/CVoiceRecorder.h
+ *  FILE:        mods/deathmatch/logic/CClientPlayerVoice.h
  *  PURPOSE:     Remote player voice chat playback
  *
  *  Multi Theft Auto is available from http://www.multitheftauto.com/
@@ -11,16 +11,12 @@
 
 #pragma once
 
-/*
-#define VOICE_FREQUENCY                 44100
-#define VOICE_SAMPLE_SIZE               2
-*/
-
-#include <mutex>
-#include <speex/speex.h>
+#include <opus.h>
 #include <CClientPlayer.h>
 #include <../deathmatch/CVoiceRecorder.h>
 #include <bass.h>
+
+#define VOICE_DEBUG_LOCAL_PLAYBACK
 
 class CClientPlayerVoice
 {
@@ -28,13 +24,11 @@ public:
     ZERO_ON_NEW
     CClientPlayerVoice(CClientPlayer* pPlayer, CVoiceRecorder* pVoiceRecorder);
     ~CClientPlayerVoice();
-    void DecodeAndBuffer(char* pBuffer, unsigned int bytesWritten);
+    void DecodeAndBuffer(unsigned char* pBuffer, unsigned int bytesWritten);
+    void VoiceStateChange(bool bState);
     void DoPulse();
 
     bool m_bVoiceActive;
-
-    std::list<SString> m_EventQueue;
-    std::mutex         m_Mutex;            // Only for m_EventQueue and m_bVoiceActive
 
     void GetTempoValues(float& fSampleRate, float& fTempo, float& fPitch, bool& bReverse)
     {
@@ -77,15 +71,14 @@ public:
 private:
     void Init();
     void DeInit();
-    void ServiceEventQueue();
     void ApplyFxEffects();
 
     CClientPlayer*  m_pPlayer;
     CVoiceRecorder* m_pVoiceRecorder;
     unsigned int    m_SampleRate;
+    unsigned char   m_Channels;
     HSTREAM         m_pBassPlaybackStream;
-    void*           m_pSpeexDecoderState;
-    int             m_iSpeexIncomingFrameSampleCount;
+    OpusDecoder*    m_pOpusDecoder;
     float           m_fVolume;
     float           m_fVolumeScale;
 

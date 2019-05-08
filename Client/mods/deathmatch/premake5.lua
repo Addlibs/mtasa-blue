@@ -9,7 +9,7 @@ project "Client Deathmatch"
 
 	defines { "LUA_USE_APICHECK", "SDK_WITH_BCRYPT" }
 	links {
-		"Lua_Client", "pcre", "json-c", "ws2_32", "portaudio", "zlib", "cryptopp", "libspeex", "blowfish_bcrypt",
+		"Lua_Client", "pcre", "json-c", "ws2_32", "portaudio", "zlib", "cryptopp", "libspeex", "libopus", "blowfish_bcrypt",
 		"../../../vendor/bass/lib/bass",
 		"../../../vendor/bass/lib/bass_fx",
 		"../../../vendor/bass/lib/bassmix",
@@ -31,17 +31,18 @@ project "Client Deathmatch"
 			".",
 			"./logic",
 			"../../sdk/",
-			"../../../vendor/pthreads/include",
-			"../../../vendor/bochs",
-			"../../../vendor/bass",
-			"../../../vendor/libspeex",
-			"../../../vendor/zlib",
-			"../../../vendor/pcre",
-			"../../../vendor/json-c",
-			"../../../vendor/bob_withers",
-			"../../../vendor/lua/src",
-			"../../../Shared/mods/deathmatch/logic",
-			"../../../Shared/animation",
+			"../../../vendor/pthreads/include", 
+			"../../../vendor/bochs", 
+			"../../../vendor/bass", 
+			"../../../vendor/libspeex", 
+			"../../../vendor/libopus/include", 
+			"../../../vendor/zlib", 
+			"../../../vendor/pcre", 
+			"../../../vendor/json-c", 
+			"../../../vendor/bob_withers", 
+			"../../../vendor/lua/src", 
+			"../../../Shared/mods/deathmatch/logic", 
+			"../../../Shared/animation", 
 			"../../../vendor/sparsehash/src/"
 	}
 

@@ -2779,6 +2779,8 @@ void CClientGame::AddBuiltInEvents()
     m_Events.AddEvent("onClientPlayerChoke", "", NULL, false);
     m_Events.AddEvent("onClientPlayerVoiceStart", "", NULL, false);
     m_Events.AddEvent("onClientPlayerVoiceStop", "", NULL, false);
+    m_Events.AddEvent("onClientVoiceStart", "", NULL, false);
+    m_Events.AddEvent("onClientVoiceStop", "", NULL, false);
     m_Events.AddEvent("onClientPlayerVoicePause", "reason", NULL, false);
     m_Events.AddEvent("onClientPlayerVoiceResumed", "reason", NULL, false);
     m_Events.AddEvent("onClientPlayerStealthKill", "target", NULL, false);
@@ -3616,7 +3618,7 @@ void CClientGame::SetupGlobalLuaEvents()
         CWebViewInterface* pFocusedBrowser = g_pCore->IsWebCoreLoaded() ? g_pCore->GetWebCore()->GetFocusedWebView() : nullptr;
         if (pFocusedBrowser && !pFocusedBrowser->IsLocal())
             return;
-        
+
         // Call event now
         CLuaArguments args;
         args.PushString(clipboardText);
@@ -6337,11 +6339,11 @@ bool CClientGame::VerifySADataFiles(int iEnableClientChecks)
     return true;
 }
 
-void CClientGame::InitVoice(bool bEnabled, unsigned int uiServerSampleRate, unsigned char ucQuality, unsigned int uiBitrate)
+void CClientGame::InitVoice(bool bEnabled, unsigned int uiServerSampleRate, unsigned char ucComplexity, unsigned int uiBitrate)
 {
     if (m_pVoiceRecorder)
     {
-        m_pVoiceRecorder->Init(bEnabled, uiServerSampleRate, ucQuality, uiBitrate);
+        m_pVoiceRecorder->Init(bEnabled, uiServerSampleRate, ucComplexity, uiBitrate);
     }
 }
 
@@ -6675,7 +6677,7 @@ void CClientGame::OutputServerInfo()
     {
         SString strVoice;
         if (m_pVoiceRecorder && m_pVoiceRecorder->IsEnabled())
-            strVoice += SString("Enabled - Sample rate:%d  Quality:%d", m_pVoiceRecorder->GetSampleRate(), m_pVoiceRecorder->GetSampleQuality());
+            strVoice += SString("Enabled - Sample rate: %d; Complexity: %d", m_pVoiceRecorder->GetSampleRate(), m_pVoiceRecorder->GetComputationalComplexity());
         else
             strVoice += "Disabled";
 

@@ -62,7 +62,7 @@ public:
 
     bool         IsVoiceEnabled();
     unsigned int GetVoiceSampleRate() { return m_uiVoiceSampleRate; };
-    unsigned int GetVoiceQuality() { return m_ucVoiceQuality; };
+    unsigned int GetVoiceComputationalComplexity() { return m_ucVoiceComplexity; };
     unsigned int GetVoiceBitrate() { return m_uiVoiceBitrate; };
 
     bool                        GetAseInternetPushEnabled() { return m_iAseMode == 2 && !IsFakeLagCommandEnabled(); }
@@ -151,7 +151,7 @@ private:
     CCommandLineParser* m_pCommandLineParser;
 
     unsigned int  m_uiVoiceSampleRate;
-    unsigned char m_ucVoiceQuality;
+    unsigned char m_ucVoiceComplexity;
     unsigned int  m_uiVoiceBitrate;
 
     bool                       m_bVoiceEnabled;

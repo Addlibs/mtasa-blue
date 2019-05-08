@@ -661,13 +661,19 @@ bool CGame::Start(int iArgumentCount, char* szArguments[])
         switch (m_pMainConfig->GetVoiceSampleRate())
         {
             case 0:
-                strVoice = SString("Quality [%i];  Sample Rate: [8000Hz]", m_pMainConfig->GetVoiceQuality());
+                strVoice = SString("Complexity [%i]; Sample Rate: [8000Hz]", m_pMainConfig->GetVoiceComputationalComplexity());
                 break;
             case 1:
-                strVoice = SString("Quality [%i];  Sample Rate: [16000Hz]", m_pMainConfig->GetVoiceQuality());
+                strVoice = SString("Complexity [%i]; Sample Rate: [12000Hz]", m_pMainConfig->GetVoiceComputationalComplexity());
                 break;
             case 2:
-                strVoice = SString("Quality [%i];  Sample Rate: [32000Hz]", m_pMainConfig->GetVoiceQuality());
+                strVoice = SString("Complexity [%i]; Sample Rate: [16000Hz]", m_pMainConfig->GetVoiceComputationalComplexity());
+                break;
+            case 3:
+                strVoice = SString("Complexity [%i]; Sample Rate: [24000Hz]", m_pMainConfig->GetVoiceComputationalComplexity());
+                break;
+            case 4:
+                strVoice = SString("Complexity [%i]; Sample Rate: [48000Hz]", m_pMainConfig->GetVoiceComputationalComplexity());
                 break;
             default:
                 break;
@@ -1224,10 +1230,11 @@ void CGame::JoinPlayer(CPlayer& Player)
     marker.Set("Start");
 
     // Let him join
-    Player.Send(CPlayerJoinCompletePacket(
-        Player.GetID(), m_pPlayerManager->Count(), m_pMapManager->GetRootElement()->GetID(), m_pMainConfig->GetHTTPDownloadType(), m_pMainConfig->GetHTTPPort(),
-        m_pMainConfig->GetHTTPDownloadURL().c_str(), m_pMainConfig->GetHTTPMaxConnectionsPerClient(), m_pMainConfig->GetEnableClientChecks(),
-        m_pMainConfig->IsVoiceEnabled(), m_pMainConfig->GetVoiceSampleRate(), m_pMainConfig->GetVoiceQuality(), m_pMainConfig->GetVoiceBitrate()));
+    Player.Send(CPlayerJoinCompletePacket(Player.GetID(), m_pPlayerManager->Count(), m_pMapManager->GetRootElement()->GetID(),
+                                          m_pMainConfig->GetHTTPDownloadType(), m_pMainConfig->GetHTTPPort(), m_pMainConfig->GetHTTPDownloadURL().c_str(),
+                                          m_pMainConfig->GetHTTPMaxConnectionsPerClient(), m_pMainConfig->GetEnableClientChecks(),
+                                          m_pMainConfig->IsVoiceEnabled(), m_pMainConfig->GetVoiceSampleRate(),
+                                          m_pMainConfig->GetVoiceComputationalComplexity(), m_pMainConfig->GetVoiceBitrate()));
 
     marker.Set("CPlayerJoinCompletePacket");
 
@@ -1357,7 +1364,7 @@ void CGame::QuitPlayer(CPlayer& Player, CClient::eQuitReasons Reason, bool bSayI
         return;
 
     Player.SetLeavingServer(true);
-    
+
     // Grab quit reaason
     const char* szReason = "Unknown";
     switch (Reason)
@@ -3607,7 +3614,7 @@ void CGame::Packet_Voice_End(CVoiceEndPacket& Packet)
             // Filter out ourselves and ignored
             for (std::set<CPlayer*>::iterator iter = playerSendMap.begin(); iter != playerSendMap.end();)
             {
-                if (*iter == pPlayer || (*iter)->IsPlayerIgnoringElement(pPlayer))
+                if ((*iter)->IsPlayerIgnoringElement(pPlayer))
                     playerSendMap.erase(iter++);
                 else
                     ++iter;
@@ -4154,7 +4161,7 @@ void CGame::SendPacketBatchEnd()
 bool CGame::IsBulletSyncActive()
 {
     bool bConfigSaysEnable = m_pMainConfig->GetBulletSyncEnabled();
-#if 0       // No auto bullet sync as there are some problems with it
+#if 0            // No auto bullet sync as there are some problems with it
     bool bGlitchesSayEnable = ( m_Glitches [ GLITCH_FASTFIRE ] || m_Glitches [ GLITCH_CROUCHBUG ] );
 #else
     bool bGlitchesSayEnable = false;

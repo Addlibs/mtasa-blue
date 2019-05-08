@@ -21,15 +21,15 @@ CPlayerJoinCompletePacket::CPlayerJoinCompletePacket()
     m_iHTTPMaxConnectionsPerClient = 4;
     m_iEnableClientChecks = 0;
     m_bVoiceEnabled = true;
-    m_ucSampleRate = 1;
-    m_ucQuality = 4;
+    m_ucSampleRate = 2;
+    m_ucComplexity = 8;
     m_uiBitrate = 0;
 }
 
 CPlayerJoinCompletePacket::CPlayerJoinCompletePacket(ElementID PlayerID, unsigned char ucNumberOfPlayers, ElementID RootElementID,
                                                      eHTTPDownloadType ucHTTPDownloadType, unsigned short usHTTPDownloadPort, const char* szHTTPDownloadURL,
                                                      int iHTTPMaxConnectionsPerClient, int iEnableClientChecks, bool bVoiceEnabled, unsigned char ucSampleRate,
-                                                     unsigned char ucVoiceQuality, unsigned int uiBitrate)
+                                                     unsigned char ucVoiceComplexity, unsigned int uiBitrate)
 {
     m_PlayerID = PlayerID;
     m_ucNumberOfPlayers = ucNumberOfPlayers;
@@ -39,7 +39,7 @@ CPlayerJoinCompletePacket::CPlayerJoinCompletePacket(ElementID PlayerID, unsigne
     m_iEnableClientChecks = iEnableClientChecks;
     m_bVoiceEnabled = bVoiceEnabled;
     m_ucSampleRate = ucSampleRate;
-    m_ucQuality = ucVoiceQuality;
+    m_ucComplexity = ucVoiceComplexity;
     m_uiBitrate = uiBitrate;
 
     switch (m_ucHTTPDownloadType)
@@ -69,12 +69,12 @@ bool CPlayerJoinCompletePacket::Write(NetBitStreamInterface& BitStream) const
     BitStream.WriteBit(m_bVoiceEnabled);
 
     // Transmit the sample rate for voice
-    SIntegerSync<unsigned char, 2> sampleRate(m_ucSampleRate);
+    SIntegerSync<unsigned char, 3> sampleRate(m_ucSampleRate);
     BitStream.Write(&sampleRate);
 
-    // Transmit the quality for voice
-    SIntegerSync<unsigned char, 4> voiceQuality(m_ucQuality);
-    BitStream.Write(&voiceQuality);
+    // Transmit the complexity for voice
+    SIntegerSync<unsigned char, 4> voiceComplexity(m_ucComplexity);
+    BitStream.Write(&voiceComplexity);
 
     // Transmit the max bitrate for voice
     BitStream.WriteCompressed(m_uiBitrate);

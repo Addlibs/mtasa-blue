@@ -1,8 +1,8 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
- *  FILE:        mods/deathmatch/logic/CVoiceRecorder.cpp
+ *  FILE:        mods/deathmatch/logic/CClientPlayerVoice.cpp
  *  PURPOSE:     Remote player voice chat playback
  *
  *  Multi Theft Auto is available from http://www.multitheftauto.com/
@@ -21,7 +21,7 @@
 void CALLBACK BPMCallback(int handle, float bpm, void* user);
 void CALLBACK BeatCallback(DWORD chan, double beatpos, void* user);
 
-#define INVALID_FX_HANDLE (-1)  // Hope that BASS doesn't use this as a valid Fx handle
+#define INVALID_FX_HANDLE (-1)            // Hope that BASS doesn't use this as a valid Fx handle
 
 CClientPlayerVoice::CClientPlayerVoice(CClientPlayer* pPlayer, CVoiceRecorder* pVoiceRecorder)
 {
@@ -29,8 +29,8 @@ CClientPlayerVoice::CClientPlayerVoice(CClientPlayer* pPlayer, CVoiceRecorder* p
     m_pVoiceRecorder = pVoiceRecorder;
     m_bVoiceActive = false;
     m_SampleRate = SAMPLERATE_WIDEBAND;
-    m_pSpeexDecoderState = NULL;
-    m_iSpeexIncomingFrameSampleCount = 0;
+    m_Channels = 2;
+    m_pOpusDecoder = nullptr;
 
     // Get initial voice volume
     m_fVolume = 1.0f;
@@ -39,10 +39,12 @@ CClientPlayerVoice::CClientPlayerVoice(CClientPlayer* pPlayer, CVoiceRecorder* p
 
     m_fVolume = m_fVolume * m_fVolumeScale;
 
+#ifndef VOICE_DEBUG_LOCAL_PLAYBACK
     if (pPlayer->IsLocalPlayer() == true)
     {
         m_fVolume = 0.0f;
     }
+#endif
     m_fPlaybackSpeed = 1.0f;
     Init();
 }
@@ -51,41 +53,25 @@ CClientPlayerVoice::~CClientPlayerVoice()
     DeInit();
 }
 
-void CALLBACK BASS_VoiceStateChange(HSYNC handle, DWORD channel, DWORD data, void* user)
-{
-    if (data == 0)
-    {
-        CClientPlayerVoice* pVoice = static_cast<CClientPlayerVoice*>(user);
-        std::lock_guard<std::mutex> lock(pVoice->m_Mutex);
-
-        if (pVoice->m_bVoiceActive)
-        {
-            pVoice->m_EventQueue.push_back("onClientPlayerVoiceStop");
-            pVoice->m_bVoiceActive = false;
-        }
-    }
-}
-
 void CClientPlayerVoice::Init()
 {
-    // Grab our sample rate and quality
+    // Grab our sample rate and number of channels
     m_SampleRate = m_pVoiceRecorder->GetSampleRate();
-    unsigned char ucQuality = m_pVoiceRecorder->GetSampleQuality();
+    m_Channels = m_pVoiceRecorder->GetChannels();
 
     // Setup our BASS playback device
-    m_pBassPlaybackStream = BASS_StreamCreate(m_SampleRate / VOICE_SAMPLE_SIZE, 2, BASS_STREAM_AUTOFREE, STREAMPROC_PUSH, NULL);
-    BASS_ChannelSetSync(m_pBassPlaybackStream, BASS_SYNC_STALL, 0, &BASS_VoiceStateChange, this);
+    m_pBassPlaybackStream = BASS_StreamCreate(m_SampleRate, m_Channels, BASS_STREAM_AUTOFREE, STREAMPROC_PUSH, NULL);
 
     BASS_ChannelPlay(m_pBassPlaybackStream, false);
     BASS_ChannelSetAttribute(m_pBassPlaybackStream, BASS_ATTRIB_VOL, m_fVolume * m_fVolumeScale);
 
-    // Get the relevant speex mode for the servers sample rate
-    const SpeexMode* speexMode = m_pVoiceRecorder->getSpeexModeFromSampleRate();
-    m_pSpeexDecoderState = speex_decoder_init(speexMode);
-
-    // Initialize our speex decoder
-    speex_decoder_ctl(m_pSpeexDecoderState, SPEEX_GET_FRAME_SIZE, &m_iSpeexIncomingFrameSampleCount);
-    speex_decoder_ctl(m_pSpeexDecoderState, SPEEX_SET_QUALITY, &ucQuality);
+    int err;
+    m_pOpusDecoder = opus_decoder_create(m_SampleRate, m_Channels, &err);
+    if (err != OPUS_OK)
+    {
+        g_pCore->GetConsole()->Printf("[VOICE] Failed to create decoder for %s's voice data.", m_pPlayer->GetNick());
+        m_pOpusDecoder = nullptr;
+    }
 }
 
 void CClientPlayerVoice::DeInit()
@@ -93,24 +79,28 @@ void CClientPlayerVoice::DeInit()
     BASS_ChannelStop(m_pBassPlaybackStream);
     BASS_StreamFree(m_pBassPlaybackStream);
 
+    m_Channels = 2;
+
     m_pBassPlaybackStream = NULL;
 
-    speex_decoder_destroy(m_pSpeexDecoderState);
-    m_pSpeexDecoderState = NULL;
+    if (m_pOpusDecoder != nullptr)
+        opus_decoder_destroy(m_pOpusDecoder);
+    m_pOpusDecoder = nullptr;
 
     m_SampleRate = SAMPLERATE_WIDEBAND;
 }
 
 void CClientPlayerVoice::DoPulse()
 {
-    // Dispatch queued events
-    ServiceEventQueue();
-
     float fPreviousVolume = 0.0f;
     g_pCore->GetCVars()->Get("voicevolume", fPreviousVolume);
     fPreviousVolume *= g_pCore->GetCVars()->GetValue<float>("mastervolume", 1.0f);
 
-    if (fPreviousVolume != m_fVolumeScale && m_pPlayer->IsLocalPlayer() == false)
+    if (fPreviousVolume != m_fVolumeScale
+#ifndef VOICE_DEBUG_LOCAL_PLAYBACK
+        && m_pPlayer->IsLocalPlayer() == false
+#endif
+    )
     {
         m_fVolumeScale = fPreviousVolume;
         float fScaledVolume = m_fVolume * m_fVolumeScale;
@@ -118,54 +108,41 @@ void CClientPlayerVoice::DoPulse()
     }
 }
 
-void CClientPlayerVoice::DecodeAndBuffer(char* pBuffer, unsigned int bytesWritten)
+void CClientPlayerVoice::DecodeAndBuffer(unsigned char* pBuffer, unsigned int bytesWritten)
 {
-    m_Mutex.lock();
+    VoiceStateChange(true);
 
-    if (!m_bVoiceActive)
+    if (m_bVoiceActive && m_pOpusDecoder != nullptr)            // If we reach here and m_bVoiceActive isn't true, then voice start must've been cancelled
     {
-        m_Mutex.unlock();
+        opus_int16   pTempBuffer[VOICE_MAX_FRAME_SIZE];
+        unsigned int uiLength = opus_decode(m_pOpusDecoder, pBuffer, bytesWritten, pTempBuffer, VOICE_MAX_FRAME_SIZE / 2, 0);
 
-        ServiceEventQueue();
+        if (uiLength >= 0)
+            BASS_StreamPutData(m_pBassPlaybackStream, (void*)pTempBuffer, uiLength * m_Channels * sizeof(opus_int16));
+    }
+}
 
-        CLuaArguments Arguments;
-        if (!m_pPlayer->CallEvent("onClientPlayerVoiceStart", Arguments, true))
-            return;
-
-        m_bVoiceActive = true;
+void CClientPlayerVoice::VoiceStateChange(bool bState)
+{
+    if (bState)
+    {
+        if (m_bVoiceActive != bState)
+        {
+            CLuaArguments Arguments;
+            if (!m_pPlayer->CallEvent("onClientPlayerVoiceStart", Arguments, true))
+                return;
+        }
     }
     else
     {
-        m_Mutex.unlock();
+        if (m_bVoiceActive != bState)
+        {
+            CLuaArguments Arguments;
+            m_pPlayer->CallEvent("onClientPlayerVoiceStop", Arguments, true);
+        }
     }
 
-    char      pTempBuffer[2048];
-    SpeexBits speexBits;
-    speex_bits_init(&speexBits);
-
-    speex_bits_read_from(&speexBits, (char*)(pBuffer), bytesWritten);
-    speex_decode_int(m_pSpeexDecoderState, &speexBits, (spx_int16_t*)pTempBuffer);
-
-    speex_bits_destroy(&speexBits);
-
-    unsigned int uiSpeexBlockSize = m_iSpeexIncomingFrameSampleCount * VOICE_SAMPLE_SIZE;
-
-    BASS_StreamPutData(m_pBassPlaybackStream, (void*)pTempBuffer, uiSpeexBlockSize);
-}
-
-void CClientPlayerVoice::ServiceEventQueue()
-{
-    std::list<SString> eventQueue;
-    {
-        std::lock_guard<std::mutex> lock(m_Mutex);
-        std::swap(eventQueue, m_EventQueue);
-    }
-
-    for (const SString& strEvent : eventQueue)
-    {
-        CLuaArguments Arguments;
-        m_pPlayer->CallEvent(strEvent, Arguments, true);
-    }
+    m_bVoiceActive = bState;
 }
 
 ////////////////////////////////////////////////////////////
@@ -218,7 +195,11 @@ void CClientPlayerVoice::SetVolume(float fVolume, bool bStore)
 {
     m_fVolume = fVolume;
 
-    if (m_pBassPlaybackStream && m_pPlayer->IsLocalPlayer() == false)
+    if (m_pBassPlaybackStream
+#ifndef VOICE_DEBUG_LOCAL_PLAYBACK
+        && m_pPlayer->IsLocalPlayer() == false
+#endif
+    )
     {
         float fScaledVolume = m_fVolume * m_fVolumeScale;
         BASS_ChannelSetAttribute(m_pBassPlaybackStream, BASS_ATTRIB_VOL, fScaledVolume);

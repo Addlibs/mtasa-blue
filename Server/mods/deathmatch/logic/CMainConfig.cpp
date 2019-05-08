@@ -57,8 +57,8 @@ CMainConfig::CMainConfig(CConsole* pConsole, CLuaManager* pLuaMain) : CXMLConfig
     m_uiScriptDebugLogLevel = 0;
     m_bDontBroadcastLan = false;
     m_usFPSLimit = 36;
-    m_uiVoiceSampleRate = 1;
-    m_ucVoiceQuality = 4;
+    m_uiVoiceSampleRate = 2;
+    m_ucVoiceComplexity = 8;
     m_bVoiceEnabled = false;
     m_uiVoiceBitrate = 0;
     m_strBandwidthReductionMode = "medium";
@@ -357,13 +357,13 @@ bool CMainConfig::Load()
 
     // Grab the Sample Rate for Voice
     iTemp = m_uiVoiceSampleRate;
-    iResult = GetInteger(m_pRootNode, "voice_samplerate", iTemp, 0, 2);
-    m_uiVoiceSampleRate = Clamp(0, iTemp, 2);
+    iResult = GetInteger(m_pRootNode, "voice_samplerate", iTemp, 0, 4);
+    m_uiVoiceSampleRate = Clamp(0, iTemp, 4);
 
-    // Grab the Quality for Voice
-    iTemp = m_ucVoiceQuality;
-    iResult = GetInteger(m_pRootNode, "voice_quality", iTemp, 0, 10);
-    m_ucVoiceQuality = Clamp(0, iTemp, 10);
+    // Grab the Computational Complexity for Voice
+    iTemp = m_ucVoiceComplexity;
+    iResult = GetInteger(m_pRootNode, "voice_complexity", iTemp, 0, 10);
+    m_ucVoiceComplexity = Clamp(0, iTemp, 10);
 
     // Grab the bitrate for Voice [optional]
     iResult = GetInteger(m_pRootNode, "voice_bitrate", iTemp);
